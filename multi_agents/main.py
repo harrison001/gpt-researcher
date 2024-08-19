@@ -1,6 +1,7 @@
 from dotenv import load_dotenv
 import sys
 import os
+import uuid
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from multi_agents.agents import ChiefEditorAgent
@@ -14,33 +15,22 @@ if os.environ.get("LANGCHAIN_API_KEY"):
 load_dotenv()
 
 def open_task():
-    with open('task.json', 'r') as f:
+    # Get the directory of the current script
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    # Construct the absolute path to task.json
+    task_json_path = os.path.join(current_dir, 'task.json')
+    
+    with open(task_json_path, 'r') as f:
         task = json.load(f)
 
     if not task:
-        raise Exception("No task provided. Please include a task.json file in the root directory.")
+        raise Exception("No task provided. Please include a task.json file in the multi_agents directory.")
 
     return task
 
 async def run_research_task(query, websocket=None, stream_output=None, tone=Tone.Objective, headers=None):
-    task = {
-        "query": query,
-        "max_sections": 3,
-        "publish_formats": {
-            "markdown": True,
-            "pdf": True,
-            "docx": True
-        },
-        "follow_guidelines": False,
-        "model": "gpt-4o",
-        "guidelines": [
-            "The report MUST be written in APA format",
-            "Each sub section MUST include supporting sources using hyperlinks. If none exist, erase the sub section or rewrite it to be a part of the previous section",
-            "The report MUST be written in spanish"
-        ],
-        "verbose": True,
-        "llm_provider": "openai"
-    }
+    task = open_task()
+    task["query"] = query
 
     chief_editor = ChiefEditorAgent(task, websocket, stream_output, tone, headers)
     research_report = await chief_editor.run_research_task()
@@ -54,7 +44,7 @@ async def main():
     task = open_task()
 
     chief_editor = ChiefEditorAgent(task)
-    research_report = await chief_editor.run_research_task()
+    research_report = await chief_editor.run_research_task(task_id=uuid.uuid4())
 
     return research_report
 

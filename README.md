@@ -9,7 +9,7 @@
 
 [![Website](https://img.shields.io/badge/Official%20Website-gptr.dev-teal?style=for-the-badge&logo=world&logoColor=white&color=0891b2)](https://gptr.dev)
 [![Documentation](https://img.shields.io/badge/Documentation-DOCS-f472b6?logo=googledocs&logoColor=white&style=for-the-badge)](https://docs.gptr.dev)
-[![Discord Follow](https://dcbadge.vercel.app/api/server/QgZXvJAccX?style=for-the-badge)](https://discord.gg/QgZXvJAccX)
+[![Discord Follow](https://img.shields.io/discord/1127851779011391548?style=for-the-badge&logo=discord&label=Chat%20on%20Discord)](https://discord.gg/QgZXvJAccX)
 <!--[![Discord Follow](https://img.shields.io/discord/1127851779011391548?style=for-the-badge&logo=discord&logoColor=white&color=7e61ab)](https://discord.gg/cPhHPZ6Z)-->
 
 <!--[![Github License](https://img.shields.io/pypi/l/gpt-researcher?logoColor=white&logo=github&color=FF5A5F&style=for-the-badge)](https://opensource.org/licenses/MIT)-->
@@ -30,7 +30,7 @@
 
 The agent can produce detailed, factual and unbiased research reports, with customization options for focusing on relevant resources and outlines. Inspired by the recent [Plan-and-Solve](https://arxiv.org/abs/2305.04091) and [RAG](https://arxiv.org/abs/2005.11401) papers, GPT Researcher addresses issues of misinformation, speed, determinism and reliability, offering a more stable performance and increased speed through parallelized agent work, as opposed to synchronous operations.
 
-**Our mission is to empower individuals and organizations with accurate, unbiased, and factual information by leveraging the power of AI.**
+**Our mission is to empower individuals and organizations with accurate, unbiased, and factual information by leveraging the power of AI.** 
 
 ## Why GPT Researcher?
 
@@ -126,7 +126,7 @@ python -m uvicorn main:app --reload
 
 <br />
 
-**To learn how to get started with [Docker](https://docs.gptr.dev/docs/gpt-researcher/getting-started#try-it-with-docker), [Poetry](https://docs.gptr.dev/docs/gpt-researcher/getting-started#poetry) or a [virtual environment](https://docs.gptr.dev/docs/gpt-researcher/getting-started#virtual-environment) check out the [documentation](https://docs.gptr.dev/docs/gpt-researcher/getting-started) page.**
+**To learn how to get started with [Poetry](https://docs.gptr.dev/docs/gpt-researcher/getting-started#poetry) or a [virtual environment](https://docs.gptr.dev/docs/gpt-researcher/getting-started#virtual-environment) check out the [documentation](https://docs.gptr.dev/docs/gpt-researcher/getting-started) page.**
 
 ### Run as PIP package
 ```bash
@@ -149,6 +149,26 @@ report = await researcher.write_report()
 **For more examples and configurations, please refer to the [PIP documentation](https://docs.gptr.dev/docs/gpt-researcher/pip-package) page.**
 
 
+## Run with Docker
+
+> **Step 1** - [Install Docker](https://docs.gptr.dev/docs/gpt-researcher/getting-started#try-it-with-docker)
+
+> **Step 2** - Clone the '.env.example' file, add your API Keys to the cloned file and save the file as '.env'
+
+> **Step 3** - Within the docker-compose file comment out services that you don't want to run with Docker.
+
+```bash
+$ docker-compose up --build
+```
+
+> **Step 4** - By default, if you haven't uncommented anything in your docker-compose file, this flow will start 2 processes:
+ - the Python server running on localhost:8000<br>
+ - the React app running on localhost:3000<br>
+
+Visit localhost:3000 on any browser and enjoy researching!
+
+
+
 ## 📄 Research on Local Documents
 
 You can instruct the GPT Researcher to run research tasks based on your local documents. Currently supported file formats are: PDF, plain text, CSV, Excel, Markdown, PowerPoint, and Word documents.
@@ -162,10 +182,6 @@ export DOC_PATH="./my-docs"
 Step 2: 
  - If you're running the frontend app on localhost:8000, simply select "My Documents" from the the "Report Source" Dropdown Options.
  - If you're running GPT Researcher with the [PIP package](https://docs.tavily.com/docs/gpt-researcher/pip-package), pass the `report_source` argument as "documents" when you instantiate the `GPTResearcher` class [code sample here](https://docs.tavily.com/docs/gpt-researcher/tailored-research).
-
-### One-Click Deployment
-
-[![Deploy to RepoCloud](https://d16t0pc4846x52.cloudfront.net/deploylobe.svg)](https://repocloud.io/details/?app_id=274)
 
 ## 👪 Multi-Agent Assistant
 As AI evolves from prompt engineering and RAG to multi-agent systems, we're excited to introduce our new multi-agent assistant built with [LangGraph](https://python.langchain.com/v0.1/docs/langgraph/).
@@ -189,7 +205,7 @@ Please check out our [roadmap](https://trello.com/b/3O7KBePw/gpt-researcher-road
 
 ## 🛡 Disclaimer
 
-This project, GPT Researcher, is an experimental application and is provided "as-is" without any warranty, express or implied. We are sharing codes for academic purposes under the MIT license. Nothing herein is academic advice, and NOT a recommendation to use in academic or research papers.
+This project, GPT Researcher, is an experimental application and is provided "as-is" without any warranty, express or implied. We are sharing codes for academic purposes under the Apache 2 license. Nothing herein is academic advice, and NOT a recommendation to use in academic or research papers.
 
 Our view on unbiased research claims:
 1. The main goal of GPT Researcher is to reduce incorrect and biased facts. How? We assume that the more sites we scrape the less chances of incorrect data. By scraping over 20 sites per research, and choosing the most frequent information, the chances that they are all wrong is extremely low.
