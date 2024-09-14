@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Markdown and Math Display</title>
+  
+  <!-- 加载 Marked.js 以支持 Markdown -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+  <!-- 加载 MathJax 以支持 LaTeX 和 MathML -->
+  <script type="text/javascript" id="MathJax-script" async 
+    src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+  </script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    #output {
+      padding: 20px;
+      background-color: #f9f9f9;
+      border: 1px solid #ddd;
+    }
+    pre {
+      background-color: #f0f0f0;
+      padding: 10px;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Markdown and Math Display</h1>
+
+  <!-- 输入 Markdown 的区域 -->
+  <textarea id="input" rows="10" cols="80" placeholder="Enter your markdown with math here..."></textarea>
+
+  <br><br>
+  <button onclick="renderMarkdown()">Render Markdown</button>
+
+  <!-- 用于展示解析后的 Markdown 和 Math 的区域 -->
+  <div id="output"></div>
+
+  <script>
+    function renderMarkdown() {
+      // 获取输入的 Markdown 内容
+      const input = document.getElementById('input').value;
+
+      // 使用 Marked.js 解析 Markdown
+      const htmlContent = marked.parse(input);
+
+      // 将解析后的内容展示在页面上
+      document.getElementById('output').innerHTML = htmlContent;
+
+      // 调用 MathJax 来渲染数学公式
+      MathJax.typeset();
+    }
+  </script>
+
+</body>
+</html>
