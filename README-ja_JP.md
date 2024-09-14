@@ -9,6 +9,7 @@
 -  [English](README.md)
 -  [中文](README-zh_CN.md)
 -  [日本語](README-ja_JP.md)
+-  [한국어](README-ko_KR.md)
 
 **GPT Researcher は、さまざまなタスクに対する包括的なオンラインリサーチのために設計された自律エージェントです。**
 
@@ -58,7 +59,7 @@ https://github.com/assafelovic/gpt-researcher/assets/13554167/a00c89a6-a295-4dd0
 
 ## 📖 ドキュメント
 
-完全なドキュメントについては、[こちら](https://docs.gptr.dev/docs/gpt-researcher/getting-started)を参照してください：
+完全なドキュメントについては、[こちら](https://docs.gptr.dev/docs/gpt-researcher/getting-started/getting-started)を参照してください：
 
 - 入門（インストール、環境設定、簡単な例）
 - 操作例（デモ、統合、dockerサポート）
