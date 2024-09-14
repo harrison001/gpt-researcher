@@ -1,7 +1,5 @@
 const GPTResearcher = (() => {
   const init = () => {
-    // Not sure, but I think it would be better to add event handlers here instead of in the HTML
-    //document.getElementById("startResearch").addEventListener("click", startResearch);
     document
       .getElementById('copyToClipboard')
       .addEventListener('click', copyToClipboard)
@@ -44,7 +42,7 @@ const GPTResearcher = (() => {
         addAgentResponse(data)
       } else if (data.type === 'report') {
         writeReport(data, converter)
-      } else if (data.type === 'path') {
+      } else if (data.type === 'files') {  // 使用 'files' 而不是 'path'
         updateState('finished')
         updateDownloadLink(data)
       }
@@ -89,9 +87,14 @@ const GPTResearcher = (() => {
 
   const writeReport = (data, converter) => {
     const reportContainer = document.getElementById('reportContainer')
-    const markdownOutput = converter.makeHtml(data.output)
-    reportContainer.innerHTML += markdownOutput
-    updateScroll()
+    //const markdownOutput = converter.makeHtml(data.output)
+    const options = {
+      htmlTags: true
+    };
+    const processedOutput = data.output.replace(/(\$.*?\$|\\\[.*?\\\]|\\\(.*?\\\))/g, (match) => `\\(${match}\\)`);
+    const html = window.render(processedOutput, options);
+    reportContainer.innerHTML += html;
+    updateScroll();
   }
 
   const updateDownloadLink = (data) => {
@@ -118,7 +121,6 @@ const GPTResearcher = (() => {
     document.execCommand('copy')
     document.body.removeChild(textarea)
   }
-
   const updateState = (state) => {
     var status = ''
     switch (state) {
@@ -173,7 +175,6 @@ const GPTResearcher = (() => {
       }
     }
   }
-
   const tagsInput = document.getElementById('tags-input');
   const input = document.getElementById('custom_source');
 
@@ -198,12 +199,38 @@ const GPTResearcher = (() => {
     tagElement.appendChild(removeButton);
     tagsInput.insertBefore(tagElement, input);
   }
+/*
+  const setupWebSocket = () => {
+    const { protocol, host, pathname } = window.location;
+    const ws_uri = `${protocol === 'https:' ? 'wss:' : 'ws:'}//${host}${pathname}ws`;
+    const socket = new WebSocket(ws_uri);
 
+    socket.onopen = () => {
+      console.log('WebSocket connection established');
+    };
+
+    socket.onerror = (error) => {
+      console.error('WebSocket Error: ', error);
+    };
+
+    socket.onmessage = (event) => {
+      const reportContainer = document.getElementById('reportContainer');
+      const data = event.data;
+
+      // Convert the new data to HTML using Showdown
+      const converter = new showdown.Converter();
+      const html = converter.makeHtml(data);
+
+      // Render the HTML using Mathpix
+      reportContainer.innerHTML = window.markdownToHTML(html, { htmlTags: true });
+    };
+  };
+*/
   document.addEventListener('DOMContentLoaded', init)
   return {
     startResearch,
     copyToClipboard,
     changeSource,
-      addTag,
+    addTag,
   }
 })()

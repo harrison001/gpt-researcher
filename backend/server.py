@@ -2,13 +2,44 @@ import json
 import os
 import re
 import time
-
-from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, File, UploadFile, Header
+import bcrypt
+import secrets
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, File, UploadFile, Header, Depends, HTTPException, status, Response, Cookie
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
+from threading import Lock
+from starlette.middleware.base import BaseHTTPMiddleware
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+
+security = HTTPBasic()
+
+# 用于存储用户 token 的字典
+user_tokens = {}
+
+def authenticate(credentials: HTTPBasicCredentials = Depends(security)):
+    stored_username = os.getenv("EASYCITE_USERNAME")
+    stored_password_hash = os.getenv("EASYCITE_PASSWORD_HASH")  # 存储的是密码的哈希值
+
+    if not (credentials.username == stored_username and 
+            bcrypt.checkpw(credentials.password.encode('utf-8'), stored_password_hash.encode('utf-8'))):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    return credentials.username
+
+# Define the NoCacheMiddleware
+class NoCacheMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        return response
 
 from backend.utils import write_md_to_pdf, write_md_to_word, write_text_to_md
 from backend.websocket_manager import WebSocketManager
@@ -41,12 +72,26 @@ class ConfigRequest(BaseModel):
 
 app = FastAPI()
 
+# Add the NoCacheMiddleware
+app.add_middleware(NoCacheMiddleware)
+
+# Enable CORS for your frontend domain (adjust accordingly)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.mount("/site", StaticFiles(directory="./frontend"), name="site")
 app.mount("/static", StaticFiles(directory="./frontend/static"), name="static")
 
 templates = Jinja2Templates(directory="./frontend")
 
 manager = WebSocketManager()
+connection_lock = Lock()  # Lock for WebSocket connections
+file_lock = Lock()  # Lock for file operations
 
 # Dynamic directory for outputs once first research is run
 @app.on_event("startup")
@@ -54,6 +99,9 @@ def startup_event():
     os.makedirs("outputs", exist_ok=True)
     app.mount("/outputs", StaticFiles(directory="outputs"), name="outputs")
 
+@app.get("/health")
+async def health_check():
+    return {"status": "OK"}
 
 @app.get("/")
 async def read_root(request: Request):
@@ -65,6 +113,43 @@ async def read_root(request: Request):
 # Add the sanitize_filename function here
 def sanitize_filename(filename):
     return re.sub(r"[^\w\s-]", "", filename).strip()
+
+@app.post("/login")
+def login(response: Response, credentials: HTTPBasicCredentials = Depends(security)):
+    stored_username = os.getenv("EASYCITE_USERNAME")
+    stored_password_hash = os.getenv("EASYCITE_PASSWORD_HASH")
+
+    if not (credentials.username == stored_username and 
+            bcrypt.checkpw(credentials.password.encode('utf-8'), stored_password_hash.encode('utf-8'))):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    
+    # 生成 token
+    token = secrets.token_urlsafe(32)
+    user_tokens[token] = credentials.username
+
+    response.set_cookie(key="session_token", value=token, httponly=True, secure=True)
+    return {"message": "Login successful", "token": token}
+
+@app.get("/check-login")
+def check_login(session_token: str = Cookie(None)):
+    if not session_token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No session token")
+    
+    if session_token not in user_tokens:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid session token")
+    
+    return {"message": "Authenticated", "token": session_token}
+
+@app.post("/logout")
+def logout(response: Response, session_token: str = Cookie(None)):
+    if session_token in user_tokens:
+        del user_tokens[session_token]
+    response.delete_cookie(key="session_token")
+    return {"message": "Logout successful"}
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -80,45 +165,33 @@ async def websocket_endpoint(websocket: WebSocket):
                 tone = json_data.get("tone")
                 headers = json_data.get("headers", {})
                 filename = f"task_{int(time.time())}_{task}"
-                sanitized_filename = sanitize_filename(
-                    filename
-                )  # Sanitize the filename
+                sanitized_filename = sanitize_filename(filename)
                 report_source = json_data.get("report_source")
                 if task and report_type:
                     report = await manager.start_streaming(
                         task, report_type, report_source, source_urls, tone, websocket, headers
                     )
-                    # Ensure report is a string
-                    if not isinstance(report, str):
-                        report = str(report)
-
-                    # Saving report as pdf
-                    pdf_path = await write_md_to_pdf(report, sanitized_filename)
-                    # Saving report as docx
-                    docx_path = await write_md_to_word(report, sanitized_filename)
-                    # Returning the path of saved report files
-                    md_path = await write_text_to_md(report, sanitized_filename)
-                    await websocket.send_json(
-                        {
-                            "type": "path",
-                            "output": {
-                                "pdf": pdf_path,
-                                "docx": docx_path,
-                                "md": md_path,
-                            },
-                        }
-                    )
-                elif data.startswith("human_feedback"):
-                    # Handle human feedback
-                    feedback_data = json.loads(data[14:])  # Remove "human_feedback" prefix
-                    # Process the feedback data as needed
-                    # You might want to send this feedback to the appropriate agent or update the research state
-                    print(f"Received human feedback: {feedback_data}")
-                    # You can add logic here to forward the feedback to the appropriate agent or update the research state
-                else:
-                    print("Error: not enough parameters provided.")
+                    # 生成文件
+                    md_file = await write_text_to_md(report, sanitized_filename)
+                    pdf_file = await write_md_to_pdf(report, sanitized_filename)
+                    word_file = await write_md_to_word(report, sanitized_filename)
+                    
+                    # 发送文件路径给客户端
+                    await websocket.send_json({
+                        "type": "files",
+                        "md": md_file,
+                        "pdf": pdf_file,
+                        "word": word_file
+                    })
+            elif data.startswith("human_feedback"):
+                # 处理人类反馈
+                pass
+            else:
+                await websocket.send_text("Error: not enough parameters provided.")
     except WebSocketDisconnect:
-        await manager.disconnect(websocket)
+        manager.disconnect(websocket)
+    except Exception as e:
+        print(f"WebSocket error: {str(e)}")
 
 @app.post("/api/multi_agents")
 async def run_multi_agents():
@@ -129,7 +202,7 @@ async def run_multi_agents():
     else:
         return JSONResponse(status_code=400, content={"message": "No active WebSocket connection"})
 
-@app.get("/getConfig")
+@app.get("/getConfig", dependencies=[Depends(authenticate)])
 async def get_config(
     langchain_api_key: str = Header(None),
     openai_api_key: str = Header(None),
@@ -158,7 +231,7 @@ async def get_config(
     }
     return config
 
-@app.post("/setConfig")
+@app.post("/setConfig", dependencies=[Depends(authenticate)])
 async def set_config(config: ConfigRequest):
     os.environ["ANTHROPIC_API_KEY"] = config.ANTHROPIC_API_KEY
     os.environ["TAVILY_API_KEY"] = config.TAVILY_API_KEY
@@ -175,16 +248,6 @@ async def set_config(config: ConfigRequest):
     os.environ["SEARX_URL"] = config.SEARX_URL
     return {"message": "Config updated successfully"}
 
-# Enable CORS for your frontend domain (adjust accordingly)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-
 # Define DOC_PATH
 DOC_PATH = os.getenv("DOC_PATH", "./my-docs")
 if not os.path.exists(DOC_PATH):
@@ -193,14 +256,15 @@ if not os.path.exists(DOC_PATH):
 
 @app.post("/upload/")
 async def upload_file(file: UploadFile = File(...)):
-    file_path = os.path.join(DOC_PATH, file.filename)
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-    print(f"File uploaded to {file_path}")
+    with file_lock:  # Ensure file operations are thread-safe
+        file_path = os.path.join(DOC_PATH, file.filename)
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        print(f"File uploaded to {file_path}")
 
-    # Load documents after upload
-    document_loader = DocumentLoader(DOC_PATH)
-    await document_loader.load()
+        # Load documents after upload
+        document_loader = DocumentLoader(DOC_PATH)
+        await document_loader.load()
 
     return {"filename": file.filename, "path": file_path}
 
@@ -213,11 +277,12 @@ async def list_files():
 
 @app.delete("/files/{filename}")
 async def delete_file(filename: str):
-    file_path = os.path.join(DOC_PATH, filename)
-    if os.path.exists(file_path):
-        os.remove(file_path)
-        print(f"File deleted: {file_path}")
-        return {"message": "File deleted successfully"}
-    else:
-        print(f"File not found: {file_path}")
-        return JSONResponse(status_code=404, content={"message": "File not found"})
+    with file_lock:  # Ensure file operations are thread-safe
+        file_path = os.path.join(DOC_PATH, filename)
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            print(f"File deleted: {file_path}")
+            return {"message": "File deleted successfully"}
+        else:
+            print(f"File not found: {file_path}")
+            return JSONResponse(status_code=404, content={"message": "File not found"})
